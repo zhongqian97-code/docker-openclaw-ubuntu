@@ -69,16 +69,27 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
-      - name: Export image to tar.gz
+      - name: Export image to tar.gz (split if > 1.9GB)
         run: |
           docker save openclaw-ubuntu:${{ matrix.arch }} | gzip > docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz
-          ls -lh docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz
+          FILE_SIZE=$(stat -c%s docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz)
+          echo "File size: $FILE_SIZE bytes"
+          
+          # If larger than 1.9GB, split into parts
+          if [ $FILE_SIZE -gt 1900000000 ]; then
+            echo "File too large, splitting..."
+            split -b 1900M docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz.part-
+            rm docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz
+            ls -lh docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz.part-*
+          else
+            ls -lh docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: docker-image-${{ matrix.arch }}
-          path: docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz
+          path: docker-openclaw-ubuntu-${{ matrix.arch }}.tar.gz*
           retention-days: 1
 
   create-release:
@@ -108,8 +119,8 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          mv artifacts/docker-image-amd64/docker-openclaw-ubuntu-amd64.tar.gz release/
-          mv artifacts/docker-image-arm64/docker-openclaw-ubuntu-arm64.tar.gz release/
+          mv artifacts/docker-image-amd64/docker-openclaw-ubuntu-amd64.tar.gz* release/
+          mv artifacts/docker-image-arm64/docker-openclaw-ubuntu-arm64.tar.gz* release/
           ls -lh release/
 
       - name: Create Release
@@ -123,16 +134,27 @@ jobs:
             ### 下载说明
             
             根据你的 CPU 架构选择对应的文件下载：
-            - **Intel/AMD (x86_64)**: `docker-openclaw-ubuntu-amd64.tar.gz`
-            - **Apple Silicon / ARM**: `docker-openclaw-ubuntu-arm64.tar.gz`
+            - **Intel/AMD (x86_64)**: `docker-openclaw-ubuntu-amd64.tar.gz*`
+            - **Apple Silicon / ARM**: `docker-openclaw-ubuntu-arm64.tar.gz*`
+            
+            > ⚠️ 如果文件被分卷（如 `.part-aa`, `.part-ab`），需要先合并再导入。
             
             ### 使用方法
             
+            **单文件（未分卷）：**
             ```bash
-            # 1. 下载后导入镜像
             gunzip -c docker-openclaw-ubuntu-amd64.tar.gz | docker load
+            ```
             
-            # 2. 运行容器
+            **分卷文件（如 amd64 超过 2GB）：**
+            ```bash
+            # 1. 下载所有 part 文件
+            # 2. 合并后导入
+            cat docker-openclaw-ubuntu-amd64.tar.gz.part-* | docker load
+            ```
+            
+            **运行容器：**
+            ```bash
             docker run -d \
               --name openclaw-gateway \
               -e MODEL_ID=gpt-4 \
@@ -151,8 +173,6 @@ jobs:
             ```bash
             docker pull ghcr.io/zhongqian97-code/docker-openclaw-ubuntu:latest
             ```
-          files: |
-            release/docker-openclaw-ubuntu-amd64.tar.gz
-            release/docker-openclaw-ubuntu-arm64.tar.gz
+          files: release/*
           draft: false
           prerelease: false
