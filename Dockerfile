@@ -11,7 +11,7 @@ ENV BUN_INSTALL="/usr/local" \
     DEBIAN_FRONTEND=noninteractive \
     NODE_MAJOR=22
 
-# 1. 安装系统依赖和 Node.js 22
+# 1. 安装系统依赖、Node.js 22 和 Google Chrome
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     bash \
@@ -28,33 +28,31 @@ RUN apt-get update && \
     socat \
     tini \
     unzip \
-    websockify && \
+    websockify \
+    wget && \
+    # 安装 Google Chrome 官方源
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
     # 安装 Node.js 22 官方源
-    mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
     apt-get update && \
-    apt-get install -y nodejs && \
+    apt-get install -y nodejs google-chrome-stable && \
     # 更新 npm 并安装全局包
     npm install -g npm@latest && \
     npm install -g openclaw@latest opencode-ai@latest playwright playwright-extra puppeteer-extra-plugin-stealth @steipete/bird && \
     # 安装 bun 和 qmd
     curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash && \
     /usr/local/bin/bun install -g @tobilu/qmd && \
-    # 安装 Playwright 浏览器依赖 (会安装到 /root/.cache/ms-playwright)
-    npx playwright install chromium --with-deps && \
     # 清理 apt 缓存
-    apt-get purge -y --auto-remove gnupg && \
+    apt-get purge -y --auto-remove gnupg wget && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm
+    rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm /root/.cache
 
-# 2. 创建 node 用户并移动 Playwright 缓存
+# 2. 创建 node 用户
 RUN groupadd -g 1000 node && \
     useradd -u 1000 -g node -m -s /bin/bash node && \
     mkdir -p /home/node/.openclaw/workspace /home/node/.openclaw/extensions && \
-    # 移动 Playwright 浏览器到 node 用户目录
-    mkdir -p /home/node/.cache && \
-    mv /root/.cache/ms-playwright /home/node/.cache/ && \
     chown -R node:node /home/node
 
 # 3. 插件安装（作为 node 用户以避免后期权限修复带来的镜像膨胀）
@@ -74,7 +72,7 @@ RUN cd /home/node/.openclaw/extensions && \
     timeout 300 openclaw plugins install @sunnoy/wecom || true && \
     find /home/node/.openclaw/extensions -name ".git" -type d -exec rm -rf {} + && \
     rm -rf /home/node/.openclaw/qqbot/.git && \
-    rm -rf /tmp/* /home/node/.npm
+    rm -rf /tmp/* /home/node/.npm /home/node/.cache
 
 # 4. 最终配置
 USER root
@@ -86,7 +84,9 @@ RUN chmod +x /usr/local/bin/init.sh
 # 设置环境变量
 ENV HOME=/home/node \
     TERM=xterm-256color \
-    NODE_PATH=/usr/local/lib/node_modules
+    NODE_PATH=/usr/local/lib/node_modules \
+    CHROME_BIN=/usr/bin/google-chrome-stable \
+    CHROME_PATH=/usr/bin/google-chrome-stable
 
 # 暴露端口
 EXPOSE 18789 18790
