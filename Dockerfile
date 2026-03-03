@@ -9,9 +9,10 @@ WORKDIR /app
 ENV BUN_INSTALL="/usr/local" \
     PATH="/usr/local/bin:$PATH" \
     DEBIAN_FRONTEND=noninteractive \
-    NODE_MAJOR=22
+    NODE_MAJOR=22 \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
 
-# 1. 安装系统依赖、Node.js 22 和 Google Chrome
+# 1. 安装系统依赖和 Node.js 22
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     bash \
@@ -28,24 +29,25 @@ RUN apt-get update && \
     socat \
     tini \
     unzip \
-    websockify \
-    wget && \
-    # 安装 Google Chrome 官方源
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+    websockify && \
     # 安装 Node.js 22 官方源
+    mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
     apt-get update && \
-    apt-get install -y nodejs google-chrome-stable && \
+    apt-get install -y nodejs && \
     # 更新 npm 并安装全局包
     npm install -g npm@latest && \
     npm install -g openclaw@latest opencode-ai@latest playwright playwright-extra puppeteer-extra-plugin-stealth @steipete/bird && \
     # 安装 bun 和 qmd
     curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash && \
     /usr/local/bin/bun install -g @tobilu/qmd && \
+    # 安装 Playwright Chromium 浏览器和系统依赖到全局位置
+    mkdir -p /opt/browsers && \
+    npx playwright install chromium --with-deps && \
+    chmod -R 755 /opt/browsers && \
     # 清理 apt 缓存
-    apt-get purge -y --auto-remove gnupg wget && \
+    apt-get purge -y --auto-remove gnupg && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm /root/.cache
 
@@ -85,8 +87,7 @@ RUN chmod +x /usr/local/bin/init.sh
 ENV HOME=/home/node \
     TERM=xterm-256color \
     NODE_PATH=/usr/local/lib/node_modules \
-    CHROME_BIN=/usr/bin/google-chrome-stable \
-    CHROME_PATH=/usr/bin/google-chrome-stable
+    PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
 
 # 暴露端口
 EXPOSE 18789 18790

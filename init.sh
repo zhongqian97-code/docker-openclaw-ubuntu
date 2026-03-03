@@ -50,8 +50,7 @@ sync_config_with_env() {
   "browser": {
     "headless": true,
     "noSandbox": true,
-    "defaultProfile": "openclaw",
-    "executablePath": "/usr/bin/google-chrome-stable"
+    "defaultProfile": "openclaw"
   },
   "models": { "mode": "merge", "providers": { "default": { "models": [] } } },
   "agents": {
