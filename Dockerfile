@@ -44,7 +44,8 @@ RUN apt-get update && \
     # 安装 bun 和 qmd
     curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash && \
     /usr/local/bin/bun install -g @tobilu/qmd && \
-    # 清理
+    # 清理 (保留 Chrome，标记为手动安装防止被 auto-remove 删除)
+    apt-mark manual google-chrome-stable && \
     apt-get purge -y --auto-remove gnupg wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm /root/.cache
