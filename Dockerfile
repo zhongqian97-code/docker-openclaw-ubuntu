@@ -16,7 +16,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
-    chromium-browser \
     curl \
     fonts-liberation \
     fonts-noto-cjk \
@@ -38,21 +37,24 @@ RUN apt-get update && \
     apt-get install -y nodejs && \
     # 更新 npm 并安装全局包
     npm install -g npm@latest && \
-    npm install -g openclaw@2026.2.25 opencode-ai@latest playwright playwright-extra puppeteer-extra-plugin-stealth @steipete/bird && \
+    npm install -g openclaw@latest opencode-ai@latest playwright playwright-extra puppeteer-extra-plugin-stealth @steipete/bird && \
     # 安装 bun 和 qmd
     curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash && \
     /usr/local/bin/bun install -g @tobilu/qmd && \
-    # 安装 Playwright 浏览器依赖
+    # 安装 Playwright 浏览器依赖 (会安装到 /root/.cache/ms-playwright)
     npx playwright install chromium --with-deps && \
     # 清理 apt 缓存
     apt-get purge -y --auto-remove gnupg && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm /root/.cache
+    rm -rf /var/lib/apt/lists/* /tmp/* /root/.npm
 
-# 2. 创建 node 用户（Ubuntu 默认没有）
+# 2. 创建 node 用户并移动 Playwright 缓存
 RUN groupadd -g 1000 node && \
     useradd -u 1000 -g node -m -s /bin/bash node && \
     mkdir -p /home/node/.openclaw/workspace /home/node/.openclaw/extensions && \
+    # 移动 Playwright 浏览器到 node 用户目录
+    mkdir -p /home/node/.cache && \
+    mv /root/.cache/ms-playwright /home/node/.cache/ && \
     chown -R node:node /home/node
 
 # 3. 插件安装（作为 node 用户以避免后期权限修复带来的镜像膨胀）
@@ -72,7 +74,7 @@ RUN cd /home/node/.openclaw/extensions && \
     timeout 300 openclaw plugins install @sunnoy/wecom || true && \
     find /home/node/.openclaw/extensions -name ".git" -type d -exec rm -rf {} + && \
     rm -rf /home/node/.openclaw/qqbot/.git && \
-    rm -rf /tmp/* /home/node/.npm /home/node/.cache
+    rm -rf /tmp/* /home/node/.npm
 
 # 4. 最终配置
 USER root
