@@ -10,7 +10,7 @@
 |------|------|------|
 | 基础镜像 | `node:22-slim` (Debian) | `ubuntu:22.04` |
 | Node.js 安装 | 镜像自带 | NodeSource 官方源安装 |
-| Chromium | `chromium` | `chromium-browser` |
+| 浏览器 | 系统 Chromium | Playwright 内置 Chromium |
 | 镜像体积 | 较小 | 较大 |
 
 ## 支持的平台
@@ -56,6 +56,47 @@ docker-compose up -d
 ```bash
 docker-compose logs -f
 ```
+
+## Docker Run 命令
+
+如果不使用 docker-compose，可以直接用 docker run：
+
+```bash
+docker run -d \
+  --name openclaw-gateway \
+  --init \
+  --ipc=host \
+  -e MODEL_ID=gpt-4 \
+  -e BASE_URL=https://api.openai.com/v1 \
+  -e API_KEY=sk-xxx \
+  -e OPENCLAW_GATEWAY_TOKEN=your-token \
+  -e OPENCLAW_GATEWAY_BIND=0.0.0.0 \
+  -e OPENCLAW_GATEWAY_PORT=18789 \
+  -p 18789:18789 \
+  -p 18790:18790 \
+  ghcr.io/zhongqian97-code/docker-openclaw-ubuntu:latest
+```
+
+**重要参数说明：**
+- `--init` - 避免僵尸进程（推荐）
+- `--ipc=host` - Chromium 浏览器需要，防止 OOM 崩溃
+
+## 浏览器支持
+
+本镜像内置 Playwright Chromium 浏览器，支持 headless 模式网页自动化。
+
+配置已预设：
+```json
+{
+  "browser": {
+    "headless": true,
+    "noSandbox": true,
+    "defaultProfile": "openclaw"
+  }
+}
+```
+
+**注意：** 运行容器时必须加 `--ipc=host` 参数，否则 Chromium 可能因共享内存不足而崩溃。
 
 ## 自行构建
 

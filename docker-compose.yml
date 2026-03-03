@@ -69,4 +69,5 @@ services:
       - "${OPENCLAW_GATEWAY_PORT}:18789"
       - "${OPENCLAW_BRIDGE_PORT}:18790"
     init: true
+    ipc: host  # Chromium 浏览器需要，防止 OOM 崩溃
     restart: unless-stopped
