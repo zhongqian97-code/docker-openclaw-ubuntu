@@ -26,12 +26,10 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          - linux/arm64
         include:
           - platform: linux/amd64
             arch: amd64
-          - platform: linux/arm64
-            arch: arm64
+        # 注意: Google Chrome 只支持 amd64，不构建 arm64
 
     steps:
       - name: Checkout repository
@@ -120,7 +118,7 @@ jobs:
         run: |
           mkdir -p release
           mv artifacts/docker-image-amd64/docker-openclaw-ubuntu-amd64.tar.gz* release/
-          mv artifacts/docker-image-arm64/docker-openclaw-ubuntu-arm64.tar.gz* release/
+          # 注意: Google Chrome 只支持 amd64，没有 arm64 镜像
           ls -lh release/
 
       - name: Create Release
@@ -131,25 +129,25 @@ jobs:
           body: |
             ## OpenClaw Docker - Ubuntu 22.04
             
+            ### 架构支持
+            
+            ⚠️ **仅支持 amd64 (x86_64)**，因为 Google Chrome 不支持 ARM 架构。
+            
             ### 下载说明
             
-            根据你的 CPU 架构选择对应的文件下载：
-            - **Intel/AMD (x86_64)**: `docker-openclaw-ubuntu-amd64.tar.gz*`
-            - **Apple Silicon / ARM**: `docker-openclaw-ubuntu-arm64.tar.gz*`
+            下载 `docker-openclaw-ubuntu-amd64.tar.gz*` 文件。
             
-            > ⚠️ 如果文件被分卷（如 `.part-aa`, `.part-ab`），需要先合并再导入。
+            > 如果文件被分卷（如 `.part-aa`, `.part-ab`），需要先合并再导入。
             
             ### 使用方法
             
-            **单文件（未分卷）：**
+            **单文件：**
             ```bash
             gunzip -c docker-openclaw-ubuntu-amd64.tar.gz | docker load
             ```
             
-            **分卷文件（如 amd64 超过 2GB）：**
+            **分卷文件（超过 2GB）：**
             ```bash
-            # 1. 下载所有 part 文件
-            # 2. 合并后导入
             cat docker-openclaw-ubuntu-amd64.tar.gz.part-* | docker load
             ```
             
@@ -168,7 +166,7 @@ jobs:
               openclaw-ubuntu:amd64
             ```
             
-            ### 或使用 GHCR 镜像（需要 docker pull）
+            ### 或使用 GHCR 镜像
             
             ```bash
             docker pull ghcr.io/zhongqian97-code/docker-openclaw-ubuntu:latest
